@@ -1,0 +1,31 @@
+{
+  "identifierUris": [
+    "api://<API-CLIENT-ID>"
+  ],
+  "api": {
+    "requestedAccessTokenVersion": 2,
+    "oauth2PermissionScopes": [
+      {
+        "id": "<DELEGATED-SCOPE-ID>",
+        "adminConsentDescription": "Allow the application to read refinery case reports on behalf of the signed-in user.",
+        "adminConsentDisplayName": "Read refinery case reports",
+        "isEnabled": true,
+        "type": "User",
+        "userConsentDescription": "Allow this application to read refinery case reports on your behalf.",
+        "userConsentDisplayName": "Read refinery case reports",
+        "value": "case.read"
+      }
+    ]
+  },
+  "requiredResourceAccess": [
+    {
+      "resourceAppId": "00000003-0000-0000-c000-000000000000",
+      "resourceAccess": [
+        {
+          "id": "e1fe6dd8-ba31-4d61-89e7-88639da4683d",
+          "type": "Scope"
+        }
+      ]
+    }
+  ]
+}

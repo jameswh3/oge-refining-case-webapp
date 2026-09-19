@@ -1,0 +1,73 @@
+[
+  {
+    "name": "search_cases",
+    "description": "Searches and filters refinery cases. Results are ordered by most recently updated.",
+    "annotations": {
+      "title": "Search Cases",
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "description": "Text to find in case numbers, titles, facilities, units, or descriptions.",
+          "type": ["string", "null"],
+          "default": null
+        },
+        "status": {
+          "description": "Case workflow status.",
+          "type": ["string", "null"],
+          "enum": ["Open", "InProgress", "OnHold", "Closed", null],
+          "default": null
+        },
+        "severity": {
+          "description": "Case severity.",
+          "type": ["string", "null"],
+          "enum": ["Informational", "Minor", "Moderate", "Major", "Critical", null],
+          "default": null
+        },
+        "type": {
+          "description": "Case type.",
+          "type": ["string", "null"],
+          "enum": ["Incident", "NearMiss", "NonConformance", "SafetyObservation", "MaintenanceIssue", "EnvironmentalConcern", null],
+          "default": null
+        },
+        "page": {
+          "description": "One-based result page.",
+          "type": "integer",
+          "default": 1
+        },
+        "pageSize": {
+          "description": "Results per page, from 1 through 100.",
+          "type": "integer",
+          "default": 20
+        }
+      }
+    }
+  },
+  {
+    "name": "get_case",
+    "description": "Gets one refinery case, including its description and timeline.",
+    "annotations": {
+      "title": "Get Case Details",
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The case ID returned by search_cases.",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["id"]
+    }
+  }
+]

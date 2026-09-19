@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oge-refining-case-foundry-agent"
+version = "0.1.0"
+description = "Microsoft Foundry agent broker for the OGE Refining Case API using delegated OBO authentication."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "azure-ai-projects>=2.0.0",
+    "azure-identity>=1.25.0",
+    "fastapi>=0.116.0",
+    "httpx>=0.28.0",
+    "pydantic-settings>=2.10.0",
+    "pyjwt[crypto]>=2.10.0",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-cov>=6.2.0",
+    "respx>=0.22.0",
+]
+
+[project.scripts]
+oge-refining-case-agent = "oge_refining_case_foundry_agent.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oge_refining_case_foundry_agent"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

@@ -1,0 +1,7 @@
+azure-ai-projects>=2.0.0
+azure-identity>=1.25.0
+fastapi>=0.116.0
+httpx>=0.28.0
+pydantic-settings>=2.10.0
+pyjwt[crypto]>=2.10.0
+uvicorn[standard]>=0.35.0

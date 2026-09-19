@@ -1,0 +1,409 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "OGE Refining Case Reporting",
+    "description": "Read-only access to synthetic refinery case reporting data.",
+    "version": "1.0.0"
+  },
+  "host": "case-api.example.invalid",
+  "basePath": "/api/v1",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "oauth2": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/00000000-0000-4000-8000-000000000001/oauth2/v2.0/authorize",
+      "tokenUrl": "https://login.microsoftonline.com/00000000-0000-4000-8000-000000000001/oauth2/v2.0/token",
+      "scopes": {
+        "api://00000000-0000-4000-8000-000000000002/case.read": "Read refinery case reports"
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": [
+        "api://00000000-0000-4000-8000-000000000002/case.read"
+      ]
+    }
+  ],
+  "paths": {
+    "/cases": {
+      "get": {
+        "summary": "List cases",
+        "description": "Searches and filters refinery case summaries with deterministic paging.",
+        "operationId": "ListCases",
+        "x-ms-summary": "List cases",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Text contained in the case number, title, or process unit.",
+            "required": false,
+            "type": "string",
+            "x-ms-summary": "Search text"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Case workflow status.",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Open",
+              "InProgress",
+              "OnHold",
+              "Closed"
+            ],
+            "x-ms-summary": "Status"
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "description": "Case severity.",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Informational",
+              "Minor",
+              "Moderate",
+              "Major",
+              "Critical"
+            ],
+            "x-ms-summary": "Severity"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Case classification.",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Incident",
+              "NearMiss",
+              "NonConformance",
+              "SafetyObservation",
+              "MaintenanceIssue",
+              "EnvironmentalConcern"
+            ],
+            "x-ms-summary": "Case type"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "One-based page number.",
+            "required": false,
+            "type": "integer",
+            "format": "int32",
+            "default": 1,
+            "minimum": 1,
+            "x-ms-summary": "Page"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Number of records to return, from 1 through 100.",
+            "required": false,
+            "type": "integer",
+            "format": "int32",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100,
+            "x-ms-summary": "Page size"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of case summaries.",
+            "schema": {
+              "$ref": "#/definitions/PagedCaseSummary"
+            }
+          },
+          "400": {
+            "description": "A query parameter is invalid.",
+            "schema": {
+              "$ref": "#/definitions/ProblemDetails"
+            }
+          },
+          "401": {
+            "description": "The connection is not authenticated."
+          },
+          "403": {
+            "description": "The connection lacks the case.read delegated scope."
+          }
+        }
+      }
+    },
+    "/cases/{reference}": {
+      "get": {
+        "summary": "Get case",
+        "description": "Retrieves a case, its report details, and its timeline.",
+        "operationId": "GetCase",
+        "x-ms-summary": "Get case details",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "description": "Case number, such as SYN-2026-0009, or case ID returned by List cases.",
+            "required": true,
+            "type": "string",
+            "x-ms-summary": "Case number or ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matching case and timeline.",
+            "schema": {
+              "$ref": "#/definitions/CaseDetail"
+            }
+          },
+          "401": {
+            "description": "The connection is not authenticated."
+          },
+          "403": {
+            "description": "The connection lacks the case.read delegated scope."
+          },
+          "404": {
+            "description": "No case has the supplied case number or identifier.",
+            "schema": {
+              "$ref": "#/definitions/ProblemDetails"
+            }
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Get current caller",
+        "description": "Returns the signed-in caller from Microsoft Graph through secretless on-behalf-of authentication.",
+        "operationId": "GetCurrentCaller",
+        "x-ms-summary": "Get current caller",
+        "responses": {
+          "200": {
+            "description": "The Microsoft Graph profile for the delegated caller.",
+            "schema": {
+              "$ref": "#/definitions/CallerProfile"
+            }
+          },
+          "401": {
+            "description": "The connection is not authenticated."
+          },
+          "403": {
+            "description": "The connection lacks the case.read delegated scope."
+          },
+          "503": {
+            "description": "Managed identity, token exchange, or Microsoft Graph is unavailable.",
+            "schema": {
+              "$ref": "#/definitions/ProblemDetails"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "PagedCaseSummary": {
+      "type": "object",
+      "required": [
+        "items",
+        "page",
+        "pageSize",
+        "totalCount"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CaseSummary"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "CaseSummary": {
+      "type": "object",
+      "required": [
+        "id",
+        "caseNumber",
+        "title",
+        "refineryName",
+        "processUnitName",
+        "type",
+        "status",
+        "severity",
+        "reportedAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "caseNumber": {
+          "type": "string",
+          "example": "SYN-2026-0017"
+        },
+        "title": {
+          "type": "string"
+        },
+        "refineryName": {
+          "type": "string"
+        },
+        "processUnitName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Incident",
+            "NearMiss",
+            "NonConformance",
+            "SafetyObservation",
+            "MaintenanceIssue",
+            "EnvironmentalConcern"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Open",
+            "InProgress",
+            "OnHold",
+            "Closed"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "Informational",
+            "Minor",
+            "Moderate",
+            "Major",
+            "Critical"
+          ]
+        },
+        "reportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "CaseDetail": {
+      "type": "object",
+      "required": [
+        "summary",
+        "description",
+        "regulatoryNotifiable",
+        "timeline"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/definitions/CaseSummary"
+        },
+        "description": {
+          "type": "string"
+        },
+        "regulatoryNotifiable": {
+          "type": "boolean"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CaseTimelineEntry"
+          }
+        }
+      }
+    },
+    "CaseTimelineEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "entryType",
+        "authorName",
+        "occurredAt",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "entryType": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    },
+    "CallerProfile": {
+      "type": "object",
+      "required": [
+        "objectId",
+        "displayName"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "userPrincipalName": {
+          "type": "string",
+          "x-nullable": true
+        }
+      }
+    },
+    "ProblemDetails": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

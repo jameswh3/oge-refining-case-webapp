@@ -1,0 +1,149 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "OGE Refining Case Reporting",
+    "description": "Read-only access to synthetic refinery case reporting data.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://your-case-api.example.com/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/cases": {
+      "get": {
+        "summary": "List cases",
+        "description": "Search and filter refinery case summaries with deterministic paging.",
+        "operationId": "ListCases",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Open", "InProgress", "OnHold", "Closed"] } },
+          { "name": "severity", "in": "query", "schema": { "type": "string", "enum": ["Informational", "Minor", "Moderate", "Major", "Critical"] } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["Incident", "NearMiss", "NonConformance", "SafetyObservation", "MaintenanceIssue", "EnvironmentalConcern"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "format": "int32", "default": 1, "minimum": 1 } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer", "format": "int32", "default": 20, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "A page of case summaries.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedCaseSummary" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/cases/{reference}": {
+      "get": {
+        "summary": "Get case",
+        "description": "Retrieve a case, its report details, and its timeline.",
+        "operationId": "GetCase",
+        "parameters": [
+          { "name": "reference", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "The matching case and timeline.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CaseDetail" } } } },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Get current caller",
+        "description": "Return the signed-in caller from Microsoft Graph through the Case API's existing on-behalf-of flow.",
+        "operationId": "GetCurrentCaller",
+        "responses": {
+          "200": { "description": "The Microsoft Graph profile for the delegated caller.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallerProfile" } } } },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "description": "The downstream identity or Microsoft Graph service is unavailable.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "responses": {
+      "BadRequest": { "description": "A query parameter is invalid.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } },
+      "Unauthenticated": { "description": "The caller is not authenticated." },
+      "Forbidden": { "description": "The caller lacks the case.read delegated scope." },
+      "NotFound": { "description": "No case has the supplied case number or identifier.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } }
+    },
+    "schemas": {
+      "PagedCaseSummary": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "totalCount"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CaseSummary" } },
+          "page": { "type": "integer", "format": "int32" },
+          "pageSize": { "type": "integer", "format": "int32" },
+          "totalCount": { "type": "integer", "format": "int32" }
+        }
+      },
+      "CaseSummary": {
+        "type": "object",
+        "required": ["id", "caseNumber", "title", "refineryName", "processUnitName", "type", "status", "severity", "reportedAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "caseNumber": { "type": "string", "example": "SYN-2026-0017" },
+          "title": { "type": "string" },
+          "refineryName": { "type": "string" },
+          "processUnitName": { "type": "string" },
+          "type": { "type": "string", "enum": ["Incident", "NearMiss", "NonConformance", "SafetyObservation", "MaintenanceIssue", "EnvironmentalConcern"] },
+          "status": { "type": "string", "enum": ["Open", "InProgress", "OnHold", "Closed"] },
+          "severity": { "type": "string", "enum": ["Informational", "Minor", "Moderate", "Major", "Critical"] },
+          "reportedAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CaseDetail": {
+        "type": "object",
+        "required": ["summary", "description", "regulatoryNotifiable", "timeline"],
+        "properties": {
+          "summary": { "$ref": "#/components/schemas/CaseSummary" },
+          "description": { "type": "string" },
+          "regulatoryNotifiable": { "type": "boolean" },
+          "timeline": { "type": "array", "items": { "$ref": "#/components/schemas/CaseTimelineEntry" } }
+        }
+      },
+      "CaseTimelineEntry": {
+        "type": "object",
+        "required": ["id", "entryType", "authorName", "occurredAt", "content"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "entryType": { "type": "string" },
+          "authorName": { "type": "string" },
+          "occurredAt": { "type": "string", "format": "date-time" },
+          "content": { "type": "string" }
+        }
+      },
+      "CallerProfile": {
+        "type": "object",
+        "required": ["objectId", "displayName"],
+        "properties": {
+          "objectId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "userPrincipalName": { "type": "string", "nullable": true }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "format": "int32" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{838A4AF3-410D-4424-A7FD-F1709E1BD2DE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "api", "api", "{80561D0D-1820-4B48-92EA-FFFB26F7FC0E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oge.Refining.CaseApp.Api", "src\api\Oge.Refining.CaseApp.Api\Oge.Refining.CaseApp.Api.csproj", "{966CB87A-1F48-4955-9178-0CC0A634055F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oge.Refining.CaseApp.Application", "src\api\Oge.Refining.CaseApp.Application\Oge.Refining.CaseApp.Application.csproj", "{FD2DAD2D-F9B1-454D-97EA-09CC846DF363}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oge.Refining.CaseApp.Infrastructure", "src\api\Oge.Refining.CaseApp.Infrastructure\Oge.Refining.CaseApp.Infrastructure.csproj", "{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0A24AAD1-11FD-428E-87C1-6E33F376FAC1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oge.Refining.CaseApp.Api.Tests", "tests\Oge.Refining.CaseApp.Api.Tests\Oge.Refining.CaseApp.Api.Tests.csproj", "{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{966CB87A-1F48-4955-9178-0CC0A634055F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{966CB87A-1F48-4955-9178-0CC0A634055F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{966CB87A-1F48-4955-9178-0CC0A634055F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{966CB87A-1F48-4955-9178-0CC0A634055F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD2DAD2D-F9B1-454D-97EA-09CC846DF363}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD2DAD2D-F9B1-454D-97EA-09CC846DF363}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD2DAD2D-F9B1-454D-97EA-09CC846DF363}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD2DAD2D-F9B1-454D-97EA-09CC846DF363}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{80561D0D-1820-4B48-92EA-FFFB26F7FC0E} = {838A4AF3-410D-4424-A7FD-F1709E1BD2DE}
+		{966CB87A-1F48-4955-9178-0CC0A634055F} = {80561D0D-1820-4B48-92EA-FFFB26F7FC0E}
+		{FD2DAD2D-F9B1-454D-97EA-09CC846DF363} = {80561D0D-1820-4B48-92EA-FFFB26F7FC0E}
+		{8C57A9E0-34C8-4EDB-A366-B17F04BEA22C} = {80561D0D-1820-4B48-92EA-FFFB26F7FC0E}
+		{6AA67D5C-DFF9-4BB7-9BEB-7C581CA23772} = {0A24AAD1-11FD-428E-87C1-6E33F376FAC1}
+	EndGlobalSection
+EndGlobal
