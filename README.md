@@ -4,14 +4,17 @@ A read-only refinery case reporting application built with ASP.NET Core, React, 
 
 ## Deployment layers
 
-The repository contains four independently deployable layers:
+The solution is organized into five layers, from the core application and shared tool surface to their agent and plugin consumers. These are logical layers, not five separate services: the MCP server is hosted by the Case API.
 
 1. **[Web app and data backend](#1-core-solution-web-app-with-data)** - the ASP.NET Core Case API, EF Core data store, and React SPA.
-2. **[Copilot Studio connection](#2-embedding-the-agent-refining-case-buddy)** - the hosted Refining Case Buddy agent, embedded in the SPA and connected through Power Platform.
-3. **[Foundry agent and connection](src/foundry-agent/README.md)** - the Python Microsoft Foundry agent broker, delegated OBO flow, Docker packaging, and the SPA's Foundry panel.
-4. **[Cowork-compatible MCP server](#4-cowork-compatible-mcp-server)** - the Streamable HTTP MCP endpoint hosted by the Case API.
+2. **[MCP server](#2-mcp-server)** - the shared read-only tool surface, Streamable HTTP endpoint, and delegated authorization hosted by the Case API.
+3. **[Copilot Studio agent and connection](#3-copilot-studio-agent-and-connection)** - the hosted Refining Case Buddy agent, embedded in the SPA and connected through Power Platform.
+4. **[Foundry agent and connection](#4-foundry-agent-and-connection)** - the Python Microsoft Foundry agent broker, delegated OBO flow, Docker packaging, and the SPA's Foundry panel.
+5. **[Copilot Cowork plugin](#5-copilot-cowork-plugin)** - the Microsoft 365 app package, OAuth configuration, and installation workflow that connect Cowork to the MCP server.
 
 The Case API is the shared read-only data boundary. Copilot Studio, the Foundry broker, the SPA, and MCP clients remain separate clients of that boundary.
+
+The MCP server is a reusable tool surface for MCP-capable agents and IDEs, including Cowork through the plugin. The current Copilot Studio agent uses a Power Platform REST connector, and the Foundry broker calls REST directly; neither currently consumes MCP.
 
 ## Architecture
 
@@ -24,7 +27,10 @@ flowchart LR
 		SPA -->|agent.invoke token| Broker[Foundry agent broker]
 		Broker -->|OBO case.read token| API
 		Broker --> Foundry[Microsoft Foundry]
-		MCPClient[MCP client] -->|MCP + delegated token| API
+		Cowork[Copilot Cowork] --> Plugin[Cowork plugin]
+		Plugin -->|MCP + delegated token| MCP[MCP server - hosted by Case API]
+		MCPClient[Other MCP-capable agents and IDEs] -->|MCP + delegated token| MCP
+		MCP --> Query
 		API --> Query[ICaseQueryService] --> DB[(SQLite or Azure SQL)]
 		API -->|OBO user assertion| Graph[Microsoft Graph]
 		Identity[Azure managed identity] -->|federated client assertion| Graph
@@ -45,6 +51,8 @@ REST controllers and MCP tools delegate reads to the same `ICaseQueryService`; t
 | `infra` | Azure Bicep infrastructure |
 | `scripts` | Deployment and Entra automation |
 | `openapi` | Power Platform connector description used by the agent |
+| `cowork` | Copilot Cowork app-package template and read-only MCP tool definitions |
+| `scripts/package-cowork.ps1` | Builds the installable Cowork `.zip` after OAuth and tenant-specific values are configured |
 | Copilot Studio | Hosted Refining Case Buddy agent; tenant-specific source exports are intentionally excluded |
 | `docs` | Deep-dive references for authentication, deployment, and Entra registration |
 
@@ -52,13 +60,13 @@ REST controllers and MCP tools delegate reads to the same `ICaseQueryService`; t
 
 ## 1. Core solution: web app with data
 
-The core solution is a read-only case-reporting web app: an ASP.NET Core API backed by EF Core, and a React SPA that searches and displays cases. Layers 2 through 4 add independent ways to reach this same API and data; none changes how the core solution works.
+The core solution is a read-only case-reporting web app: an ASP.NET Core API backed by EF Core, and a React SPA that searches and displays cases. Layers 2 through 5 add a shared MCP tool surface and agent/plugin integrations over the same API and data; none replaces the core solution.
 
 ### Solution components
 
 | Component | Project/path | What it does |
 |---|---|---|
-| Case API | `src/api/Oge.Refining.CaseApp.Api` | ASP.NET Core host exposing the REST controllers, JWT bearer authentication/authorization policies, Swagger, health checks, and Application Insights telemetry. Its MCP endpoint is described in [Layer 4](#4-cowork-compatible-mcp-server). |
+| Case API | `src/api/Oge.Refining.CaseApp.Api` | ASP.NET Core host exposing the REST controllers, JWT bearer authentication/authorization policies, Swagger, health checks, and Application Insights telemetry. Its MCP endpoint is described in [Layer 2](#2-mcp-server). |
 | Application layer | `src/api/Oge.Refining.CaseApp.Application` | Framework-free contracts (`CaseSummary`, `CaseDetail`, `CaseQuery`, `PagedResult<T>`, and the `CaseType`/`CaseStatus`/`CaseSeverity` enums) plus the `ICaseQueryService` boundary that both REST and MCP depend on. |
 | Infrastructure layer | `src/api/Oge.Refining.CaseApp.Infrastructure` | EF Core `CaseDbContext` and migrations, the SQLite/Azure SQL implementation of `ICaseQueryService`, and `GraphOboCallerProfileService`, which resolves the signed-in user through on-behalf-of. |
 | React SPA | `src/web` | The "Northstar Refining" case console: MSAL sign-in, a searchable/filterable case table with status and severity metrics, and a case detail drawer with a rendered timeline. |
@@ -102,7 +110,7 @@ SPA access uses a delegated token obtained directly through MSAL. Power Platform
 
 #### SPA, connector, and Graph OBO flow
 
-The SPA registration (`$ENTRA_SPA_CLIENT_ID`) and the Power Platform connector used by Refining Case Buddy ([Part 2](#2-embedding-the-agent-refining-case-buddy)) are both delegated clients of the API registration (`$ENTRA_API_CLIENT_ID`). Both request `$ENTRA_API_SCOPE`; the API registration exposes its `case.read` permission and identifies the accepted token audience.
+The SPA registration (`$ENTRA_SPA_CLIENT_ID`) and the Power Platform connector used by Refining Case Buddy ([Part 3](#3-copilot-studio-agent-and-connection)) are both delegated clients of the API registration (`$ENTRA_API_CLIENT_ID`). Both request `$ENTRA_API_SCOPE`; the API registration exposes its `case.read` permission and identifies the accepted token audience.
 
 ```mermaid
 sequenceDiagram
@@ -234,7 +242,61 @@ After deployment, confirm health returns `200`; anonymous case and MCP requests 
 
 ---
 
-## 1.5. Consuming the REST API from Copilot Studio
+## 2. MCP server
+
+The Case API hosts a Model Context Protocol (MCP) server so MCP-capable agents and IDEs can call `search_cases` and `get_case` as tools, using the same delegated `case.read` authorization as REST ([Part 1](#authentication)). The server is independent of the Cowork package: any authorized MCP client can use it.
+
+### Solution components
+
+| Component | Path | What it does |
+|---|---|---|
+| MCP tools | `src/api/Oge.Refining.CaseApp.Api/Mcp/CaseTools.cs` | `[McpServerToolType]` class exposing `search_cases` and `get_case`, delegating to the same `ICaseQueryService` as REST. |
+| MCP host wiring | `src/api/Oge.Refining.CaseApp.Api/Program.cs` | Registers `AddMcpServer().WithHttpTransport()`, maps `POST /mcp`, and applies the MCP-specific authorization policy and OAuth protected-resource metadata. |
+
+### MCP endpoint and tools
+
+The API hosts a stateless Streamable HTTP MCP server at `$MCP_SERVER_URL` (`POST /mcp`). It supports JSON-RPC 2.0 `tools/list` and `tools/call`, structured output, and OAuth protected-resource discovery.
+
+| Tool | Purpose | Inputs |
+|---|---|---|
+| `search_cases` | Search, filter, and page through case summaries | `search`, `status`, `severity`, `type`, `page`, `pageSize` |
+| `get_case` | Retrieve one case with description and timeline | `id` |
+
+Both tools advertise `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, and `openWorldHint: false`.
+
+### OAuth discovery
+
+An unauthenticated MCP request returns `401` with a `WWW-Authenticate` challenge pointing to:
+
+```text
+$API_BASE_URL/.well-known/oauth-protected-resource/mcp
+```
+
+The metadata identifies `$MCP_SERVER_URL` as the protected resource, `$MCP_AUTHORIZATION_SERVER` as the authorization server, and `$ENTRA_API_SCOPE` as the delegated scope. Hosted clients send the resulting bearer token to `$MCP_SERVER_URL`.
+
+### Configuration
+
+In addition to the [core configuration](#configuration), the MCP server needs:
+
+| Variable | Description | Source |
+|---|---|---|
+| `$LOCAL_MCP_SERVER_URL` | Streamable HTTP endpoint of the local MCP server. | Derived from `$LOCAL_API_BASE_URL` by appending `/mcp`. |
+| `$MCP_SERVER_URL` | Public Streamable HTTP endpoint used by hosted MCP clients. | Derived from `$API_BASE_URL` by appending `/mcp`. |
+| `$MCP_AUTHORIZATION_SERVER` | Entra issuer advertised by MCP protected-resource metadata. | Derived from `$ENTRA_TENANT_ID` as `https://login.microsoftonline.com/<tenant-id>/v2.0`. |
+
+### Use and verify the MCP server
+
+For local development, start the API as described in [Run locally](#run-locally); the MCP endpoint becomes available at `$LOCAL_MCP_SERVER_URL`. A workspace-local `.vscode/mcp.json` (not checked in) can register it as `case-app-content` for VS Code's MCP tooling.
+
+For a local MCP smoke test, point an MCP client at `$LOCAL_MCP_SERVER_URL`, list the tools, call `search_cases`, then pass a returned ID to `get_case`.
+
+For a hosted smoke test, acquire `$ENTRA_API_SCOPE` with a consented delegated client and connect to `$MCP_SERVER_URL`. Verify that anonymous requests return `401`, protected-resource metadata names `$MCP_AUTHORIZATION_SERVER` and `$ENTRA_API_SCOPE`, and authenticated calls return structured content. Never print or persist the token.
+
+---
+
+## 3. Copilot Studio agent and connection
+
+### Consuming the REST API from Copilot Studio
 
 Copilot Studio does not call the Case API with the agent maker's API connection. The agent's direct connector actions preserve the invoking user, and the custom connector obtains a delegated `case.read` token for that user. Seamless connection creation requires a second permission surface on the connector app registration in addition to its delegated permission to the Case API.
 
@@ -284,7 +346,7 @@ This connector-side bootstrap ends when the Case API receives the delegated `cas
 
 ---
 
-## 2. Embedding the agent: Refining Case Buddy
+### Embedding the agent: Refining Case Buddy
 
 Refining Case Buddy is a Microsoft Copilot Studio agent embedded directly in the SPA as a chat panel. It gives the same case data ([Part 1](#1-core-solution-web-app-with-data)) a conversational interface, reached through a custom Power Platform connector rather than a direct database connection.
 
@@ -310,7 +372,7 @@ The panel surfaces connection, loading, and reauthorization states, and lets the
 
 ### Power Platform connector
 
-Import `openapi/power-platform.deployed.swagger.json` as a custom connector. Configure delegated `$ENTRA_API_SCOPE`, save it, and add the generated redirect URI to the connector app registration before creating a connection. Configure the connector-side OBO scope, Azure API Connections preauthorization, sharing, and user privileges described in [Part 1.5](#15-consuming-the-rest-api-from-copilot-studio); delegated API permission alone is not sufficient for seamless agent connection creation.
+Import `openapi/power-platform.deployed.swagger.json` as a custom connector. Configure delegated `$ENTRA_API_SCOPE`, save it, and add the generated redirect URI to the connector app registration before creating a connection. Configure the connector-side OBO scope, Azure API Connections preauthorization, sharing, and user privileges described in [Consuming the REST API from Copilot Studio](#consuming-the-rest-api-from-copilot-studio); delegated API permission alone is not sufficient for seamless agent connection creation.
 
 ### Refining Case Buddy agent definition
 
@@ -332,7 +394,7 @@ In addition to the [core configuration](#configuration), the embedded agent need
 
 ---
 
-## 3. Foundry agent and connection
+## 4. Foundry agent and connection
 
 The in-repository [Foundry agent project](src/foundry-agent/README.md) contains the Python prompt agent, FastAPI broker, delegated OBO implementation, read-only Case API contract, Dockerfile, and tests. The SPA's separate Foundry panel requests the broker's `agent.invoke` scope and calls `POST /api/chat`; the broker preserves that signed-in user while exchanging for `case.read` and calling the Case API.
 
@@ -340,61 +402,28 @@ Deploy the broker independently from the core web stack, then provide `$BROKER_B
 
 ---
 
-## 4. Cowork-compatible MCP server
+## 5. Copilot Cowork plugin
 
-The same Case API also hosts a Model Context Protocol (MCP) server, so any MCP-capable agent or IDE can call `search_cases` and `get_case` as tools, using the same delegated `case.read` authorization used elsewhere in this solution ([Part 1](#authentication)).
+The Cowork plugin is a Microsoft 365 app package that connects Copilot Cowork to the [MCP server in Layer 2](#2-mcp-server). It is a client integration, not another MCP server or data backend.
 
 ### Solution components
 
 | Component | Path | What it does |
 |---|---|---|
-| MCP tools | `src/api/Oge.Refining.CaseApp.Api/Mcp/CaseTools.cs` | `[McpServerToolType]` class exposing `search_cases` and `get_case`, delegating to the same `ICaseQueryService` as REST. |
-| MCP host wiring | `src/api/Oge.Refining.CaseApp.Api/Program.cs` | Registers `AddMcpServer().WithHttpTransport()`, maps `POST /mcp`, and applies the MCP-specific authorization policy and OAuth protected-resource metadata. |
+| App manifest and icons | `cowork/appPackage/` | Microsoft 365 manifest v1.28 template and required PNG icons. |
+| Tool description | `cowork/tools/case-app-tools.json` | Packaged definitions of the server's `search_cases` and `get_case` tools. |
+| Packaging script | `scripts/package-cowork.ps1` | Substitutes environment-specific values and builds the installable ZIP. |
+| OAuth configuration | Microsoft Enterprise Token Store | Holds the OAuth client configuration and credentials referenced by the manifest. |
 
-### REST route
+### Create, install, and verify the plugin
 
-| Method | Route | Purpose |
-|---|---|---|
-| `POST` | `/mcp` | MCP Streamable HTTP transport |
+1. Deploy and verify the [MCP server](#use-and-verify-the-mcp-server).
+2. Register the delegated OAuth client and create its configuration in the Microsoft Enterprise Token Store.
+3. Run `scripts/package-cowork.ps1` with the MCP URL, OAuth configuration ID, app-package GUID, and publisher URLs.
+4. Install the generated package for personal testing or publish it through the Microsoft 365 admin center.
+5. In Cowork, complete OAuth sign-in, search for cases, and retrieve a case timeline.
 
-### MCP server
-
-The API hosts a stateless Streamable HTTP MCP server at `$MCP_SERVER_URL`. It supports JSON-RPC 2.0 `tools/list` and `tools/call`, structured output, and OAuth protected-resource discovery.
-
-| Tool | Purpose | Inputs |
-|---|---|---|
-| `search_cases` | Search, filter, and page through case summaries | `search`, `status`, `severity`, `type`, `page`, `pageSize` |
-| `get_case` | Retrieve one case with description and timeline | `id` |
-
-Both tools advertise `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, and `openWorldHint: false`.
-
-### OAuth discovery
-
-An unauthenticated MCP request returns `401` with a `WWW-Authenticate` challenge pointing to:
-
-```text
-$API_BASE_URL/.well-known/oauth-protected-resource/mcp
-```
-
-The metadata identifies `$MCP_SERVER_URL` as the protected resource, `$MCP_AUTHORIZATION_SERVER` as the authorization server, and `$ENTRA_API_SCOPE` as the delegated scope. Hosted clients send the resulting bearer token to `$MCP_SERVER_URL`.
-
-### Configuration
-
-In addition to the [core configuration](#configuration), the MCP server needs:
-
-| Variable | Description | Source |
-|---|---|---|
-| `$LOCAL_MCP_SERVER_URL` | Streamable HTTP endpoint of the local MCP server. | Derived from `$LOCAL_API_BASE_URL` by appending `/mcp`. |
-| `$MCP_SERVER_URL` | Public Streamable HTTP endpoint used by hosted MCP clients. | Derived from `$API_BASE_URL` by appending `/mcp`. |
-| `$MCP_AUTHORIZATION_SERVER` | Entra issuer advertised by MCP protected-resource metadata. | Derived from `$ENTRA_TENANT_ID` as `https://login.microsoftonline.com/<tenant-id>/v2.0`. |
-
-### Use and verify the MCP server
-
-For local development, start the API as described in [Run locally](#run-locally); the MCP endpoint becomes available at `$LOCAL_MCP_SERVER_URL`. A workspace-local `.vscode/mcp.json` (not checked in) can register it as `case-app-content` for VS Code's MCP tooling.
-
-For a local MCP smoke test, point an MCP client at `$LOCAL_MCP_SERVER_URL`, list the tools, call `search_cases`, then pass a returned ID to `get_case`.
-
-For a hosted smoke test, acquire `$ENTRA_API_SCOPE` with a consented delegated client and connect to `$MCP_SERVER_URL`. Verify that anonymous requests return `401`, protected-resource metadata names `$MCP_AUTHORIZATION_SERVER` and `$ENTRA_API_SCOPE`, and authenticated calls return structured content. Never print or persist the token.
+Follow [Create and install the Cowork plugin](docs/cowork-mcp.md) for the complete commands, OAuth settings, and publishing workflow. The package is environment-specific; OAuth secrets remain in the token store and are never committed.
 
 ---
 
