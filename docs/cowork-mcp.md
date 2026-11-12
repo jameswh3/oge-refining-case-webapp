@@ -1,5 +1,7 @@
 # Copilot Cowork plugin
 
+For a plugin-focused walkthrough of package contents, OAuth prerequisites, ZIP creation, and Microsoft 365 rollout, see [Copilot Cowork plugin packaging and deployment](cowork-mcp-deployment.md).
+
 The Case API exposes a read-only MCP server over Streamable HTTP at `<API-BASE-URL>/mcp`. This folder contains the Cowork app-package template and tool description, and `scripts/package-cowork.ps1` builds the installable `.zip`. OAuth credentials are configured in the Microsoft Enterprise Token Store; secrets are not included in the repository or package.
 
 The MCP server provides `search_cases` and `get_case`, both read-only, non-destructive, and idempotent. See [the API MCP host](../src/api/Oge.Refining.CaseApp.Api/Program.cs) and [tool implementation](../src/api/Oge.Refining.CaseApp.Api/Mcp/CaseTools.cs).
