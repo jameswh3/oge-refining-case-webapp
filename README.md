@@ -98,7 +98,9 @@ Every client — REST, MCP, the Power Platform connector, and Case Buddy — rea
 - **CaseSeverity** — `Informational`, `Minor`, `Moderate`, `Major`, `Critical`.
 - **CaseTimelineEntry** — a typed, timestamped, attributed entry (`EntryType`, `AuthorName`, `OccurredAt`, `Content`) attached to a case. Seed data uses case-specific entries such as `ProcessData`, `Alarm`, `Safeguard`, `Inspection`, `RecordsReview`, `Interview`, `ProcedureReview`, `ConfigurationHistory`, `LaboratoryResult`, `ImmediateAction`, and `FunctionalTest` to model operational chronologies, not generic status updates.
 
-EF Core migrations seed the fictional Northstar dataset, including the connected incident/precursor pair described above, an environmental analyzer excursion, a compressor near miss, an inspection-record discrepancy, and additional quality and safety cases. The September 2026 chronology provides enough narrative depth and status variety for search, retrieval, and conversational Q&A across every client.
+EF Core migrations seed twelve fictional Northstar cases, including the connected incident/precursor pair described above, an environmental analyzer excursion, a compressor near miss, an inspection-record discrepancy, and additional quality and safety cases. Four cases dated October 20–23, 2026 add standby-pump readiness, stormwater sampling, loading-arm bonding, and inspection source-file reconciliation, each with four evidence entries and links to earlier cases where relevant. The August–October 2026 chronology provides narrative depth and status variety for search, retrieval, and conversational Q&A across every client.
+
+As of October 23, seven of the eight older cases are closed with verification and closeout notes. The critical pressure-excursion investigation remains in progress while the October standby-pump readiness recurrence is reviewed. Each older case retains its original evidence chronology and adds two dated follow-up entries; the newer October cases retain their existing statuses.
 
 ### Authentication
 

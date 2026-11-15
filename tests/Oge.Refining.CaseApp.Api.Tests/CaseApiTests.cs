@@ -73,7 +73,7 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
     public async Task ListCases_FiltersByStatusAndSeverity()
     {
         var result = await client.GetFromJsonAsync<PagedResult<CaseSummary>>(
-            "/api/v1/cases?status=Open&severity=Critical",
+            "/api/v1/cases?status=InProgress&severity=Critical",
             JsonOptions);
 
         Assert.NotNull(result);
@@ -90,7 +90,7 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
             JsonOptions);
 
         Assert.NotNull(result);
-        Assert.Equal(8, result.TotalCount);
+        Assert.Equal(12, result.TotalCount);
         Assert.Contains(result.Items, item => item.CaseNumber == "SYN-2026-0018" && item.Type == CaseType.EnvironmentalConcern);
         Assert.Contains(result.Items, item => item.CaseNumber == "SYN-2026-0019" && item.Type == CaseType.NearMiss);
         Assert.All(result.Items, item => Assert.True(item.ReportedAt >= new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero)));
@@ -100,9 +100,28 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
             JsonOptions);
 
         Assert.NotNull(detail);
-        Assert.Equal(5, detail.Timeline.Count);
+        Assert.Equal(7, detail.Timeline.Count);
         Assert.Contains(detail.Timeline, entry => entry.EntryType == "LaboratoryResult" && entry.Content.Contains("9 ppm"));
         Assert.DoesNotContain(detail.Timeline, entry => entry.Content.Contains("demonstration purposes"));
+    }
+
+    [Theory]
+    [InlineData("SYN-2026-0022", CaseStatus.InProgress)]
+    [InlineData("SYN-2026-0023", CaseStatus.Open)]
+    [InlineData("SYN-2026-0024", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0025", CaseStatus.OnHold)]
+    public async Task DemoData_IncludesOctoberCasesWithEvidence(string caseNumber, CaseStatus status)
+    {
+        var detail = await client.GetFromJsonAsync<CaseDetail>(
+            $"/api/v1/cases/{caseNumber}", JsonOptions);
+
+        Assert.NotNull(detail);
+        Assert.Equal(status, detail.Summary.Status);
+        Assert.InRange(detail.Summary.ReportedAt,
+            new DateTimeOffset(2026, 10, 20, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 10, 24, 0, 0, 0, TimeSpan.Zero));
+        Assert.Equal(4, detail.Timeline.Count);
+        Assert.All(detail.Timeline, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Content)));
     }
 
     [Fact]
@@ -114,7 +133,7 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
 
         Assert.NotNull(result);
         Assert.Equal("SYN-2026-0017", result.Summary.CaseNumber);
-        Assert.Equal(10, result.Timeline.Count);
+        Assert.Equal(12, result.Timeline.Count);
         Assert.True(result.RegulatoryNotifiable);
         Assert.Contains("SYN-2026-0009", result.Description);
         Assert.Contains(result.Timeline, entry => entry.EntryType == "ProcessData" && entry.Content.Contains("5.1 bar"));
@@ -124,6 +143,31 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
         Assert.Contains(result.Timeline, entry => entry.EntryType == "FunctionalTest" && entry.Content.Contains("4 seconds"));
         Assert.DoesNotContain(result.Timeline, entry => entry.EntryType is "RootCause" or "CorrectiveAction" or "VerificationPlan");
         Assert.DoesNotContain("root cause", JsonSerializer.Serialize(result), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("SYN-2026-0009", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0012", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0016", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0017", CaseStatus.InProgress)]
+    [InlineData("SYN-2026-0018", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0019", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0020", CaseStatus.Closed)]
+    [InlineData("SYN-2026-0021", CaseStatus.Closed)]
+    public async Task DemoData_OlderCasesHaveCurrentStatusAndFollowUp(string caseNumber, CaseStatus status)
+    {
+        var detail = await client.GetFromJsonAsync<CaseDetail>(
+            $"/api/v1/cases/{caseNumber}", JsonOptions);
+
+        Assert.NotNull(detail);
+        Assert.Equal(status, detail.Summary.Status);
+        var latest = detail.Timeline.OrderBy(entry => entry.OccurredAt).Last();
+        Assert.Equal(detail.Summary.UpdatedAt, latest.OccurredAt);
+        Assert.Equal(status == CaseStatus.Closed ? "Closure" : "InvestigationUpdate", latest.EntryType);
+        Assert.InRange(latest.OccurredAt,
+            new DateTimeOffset(2026, 10, 20, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 10, 24, 0, 0, 0, TimeSpan.Zero));
+        Assert.Contains(detail.Timeline, entry => entry.OccurredAt < new DateTimeOffset(2026, 9, 9, 0, 0, 0, TimeSpan.Zero));
     }
 
     [Fact]
@@ -167,7 +211,7 @@ public sealed class CaseApiTests : IClassFixture<CaseApiFactory>
             "search_cases",
             new Dictionary<string, object?>
             {
-                ["status"] = "Open",
+                ["status"] = "InProgress",
                 ["severity"] = "Critical"
             });
         var content = Assert.Single(result.Content.OfType<TextContentBlock>());
