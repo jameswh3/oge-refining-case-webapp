@@ -16,6 +16,8 @@ MCP_SERVER_URL=https://<API-HOST>/mcp
 
 The endpoint must be reachable by Microsoft 365. Confirm the protected-resource metadata is available at `https://<API-HOST>/.well-known/oauth-protected-resource/mcp` and advertises the correct Entra authorization server and `case.read` scope. Check that authenticated MCP `tools/list` returns both tools. The package script rejects non-HTTPS endpoints and URLs that do not end in `/mcp`.
 
+See [Authentication and OBO](authentication.md) for API token validation and the [Cowork authentication sequence](authentication.md#4-copilot-cowork-mcp) for app registrations, token-store configuration, code redemption, and token renewal.
+
 ## 2. Register the OAuth client and create its token-store configuration
 
 Register an OAuth client with Microsoft Entra ID, then configure the authorization-code flow for the API:
